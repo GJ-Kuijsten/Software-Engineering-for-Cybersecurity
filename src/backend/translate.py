@@ -3,8 +3,12 @@ from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 import httpx # For making requests to external APIs (like Mistral/Ollama)
 
-from auth import MOCK_USERS_DB, SECRET_KEY, ALGORITHM, TokenData
+from auth import SECRET_KEY, ALGORITHM
 from jose import JWTError, jwt
+
+from database import users_table, history_table, generate_uuid, generate_timestamp
+from boto3.dynamodb.conditions import Key
+
 
 # --- Setup ---
 translate_router = APIRouter()
@@ -28,15 +32,6 @@ class HistoryItem(BaseModel):
     target_lang: str
     # created_at: datetime # Per your diagram
 
-# --- MOCK DATABASE ---
-# This is a placeholder. Replace with your 'TranslationHistory' table logic.
-MOCK_HISTORY_DB = {
-    1: [ # User ID 1
-        HistoryItem(id=123, source_text="Hello", translated_text="Hallo", source_lang="en", target_lang="nl"),
-        HistoryItem(id=124, source_text="How are you?", translated_text="Hoe gaat het?", source_lang="en", target_lang="nl")
-    ]
-}
-
 # --- Auth Dependency ---
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
@@ -58,16 +53,13 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
             raise credentials_exception
         
         #
-        # --- DATABASE LOGIC (PLACEHOLDER) ---
-        # 1. Fetch user from 'User' table by ID or username
-        user_in_db = MOCK_USERS_DB.get(username) # Using mock DB
-        if user_in_db is None or user_in_db["id"] != user_id:
+         # --- DATABASE LOGIC (DynamoDB) ---
+        db_user = users_table.get_item(Key={"username": username})
+        if "Item" not in db_user or db_user["Item"]["id"] != user_id:
             raise credentials_exception
-        #
         # --- END DATABASE LOGIC ---
-        #
-        
-        # Return the user's data (or just the ID)
+
+        user_in_db = db_user["Item"]
         return {"username": user_in_db["username"], "id": user_in_db["id"]}
 
     except JWTError:
@@ -128,26 +120,25 @@ async def translate_text(
     #
     
     #
-    # --- DATABASE LOGIC (PLACEHOLDER) ---
-    # 1. Create a new HistoryItem
-    new_history_item = HistoryItem(
-        id=len(MOCK_HISTORY_DB.get(user_id, [])) + 100, # Mock ID
-        source_text=request.text,
-        translated_text=mock_translation,
-        source_lang="en",
-        target_lang=request.target_lang
-    )
-    
-    # 2. Save the new item to 'TranslationHistory' table, linked to user_id
-    if user_id not in MOCK_HISTORY_DB:
-        MOCK_HISTORY_DB[user_id] = []
-    
-    MOCK_HISTORY_DB[user_id].insert(0, new_history_item) # Add to top
+    # --- DATABASE LOGIC (DynamoDB) ---
+    #
+    item = {
+        
+        "user_id": user_id,
+        "timestamp": generate_timestamp(),   # Sort key
+        "id": generate_uuid(),               # Unique translation ID
+        "source_text": request.text,
+        "translated_text": mock_translation,
+        "source_lang": "en",
+        "target_lang": request.target_lang
+    }
+
+    history_table.put_item(Item=item)
     #
     # --- END DATABASE LOGIC ---
     #
-    
-    return new_history_item
+
+    return item
 
 
 @translate_router.get("/history", response_model=list[HistoryItem])
@@ -159,14 +150,16 @@ async def get_translation_history(
     """
     user_id = current_user["id"]
 
+   #
+    # --- DATABASE LOGIC (DynamoDB) ---
     #
-    # --- DATABASE LOGIC (PLACEHOLDER) ---
-    # 1. Fetch all records from 'TranslationHistory' table
-    #    WHERE user_id == current_user["id"]
-    # 2. Order by 'created_at' descending
-    user_history = MOCK_HISTORY_DB.get(user_id, [])
+    result = history_table.query(
+        KeyConditionExpression=Key("user_id").eq(user_id),
+        ScanIndexForward=False  # newest first
+    )
     #
     # --- END DATABASE LOGIC ---
     #
+
+    return result.get("Items", [])
     
-    return user_history
