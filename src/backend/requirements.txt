@@ -6,3 +6,5 @@ pydantic
 jinja2
 python-multipart
 httpx
+boto3
+python-dotenv
