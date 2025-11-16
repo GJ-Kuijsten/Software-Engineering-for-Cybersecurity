@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
+from database import users_table, generate_uuid
 
 # --- Configuration ---
 # In a real app, move these to a 'config.py' or .env file
@@ -57,12 +58,6 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-# --- MOCK DATABASE ---
-# This is a placeholder. Replace this with your actual SQL database logic.
-# Your Class diagram shows: User (ID, Name, password_hash, password_salt)
-# Note: passlib's bcrypt hash *includes* the salt, so you only need one column.
-MOCK_USERS_DB = {}
-
 # --- API Endpoints ---
 
 @auth_router.post("/register", status_code=status.HTTP_201_CREATED)
@@ -70,10 +65,10 @@ async def register_user(user: UserCreate):
     """
     Registers a new user.
     """
-    #
-    # --- DATABASE LOGIC (PLACEHOLDER) ---
-    # 1. Check if user.username already exists in your 'User' table
-    if user.username in MOCK_USERS_DB:
+    # --- DATABASE LOGIC (DynamoDB) ---
+    # 1. Check if username already exists
+    result = users_table.get_item(Key={"username": user.username})
+    if "Item" in result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username already registered"
@@ -82,22 +77,18 @@ async def register_user(user: UserCreate):
     # 2. Hash the password
     hashed_password = get_password_hash(user.password)
     
-    # 3. Create the new user object (without plain password)
+    # 3. Create new user object
     new_user_data = {
-        "id": len(MOCK_USERS_DB) + 1,
+        "id": generate_uuid(),
         "name": user.name,
         "username": user.username,
         "password_hash": hashed_password
     }
 
-    # 4. Save the new user to your 'User' table
-    MOCK_USERS_DB[user.username] = new_user_data
-    #
+   # 4. Save to DynamoDB
+    users_table.put_item(Item=new_user_data)
     # --- END DATABASE LOGIC ---
-    #
-    
-    print(f"Mock DB state: {MOCK_USERS_DB}") # For debugging
-    
+
     return {"message": "User registered successfully"}
 
 
@@ -116,20 +107,27 @@ async def login_for_access_token(
     password = form_data.password
 
     #
-    # --- DATABASE LOGIC (PLACEHOLDER) ---
-    # 1. Fetch user from your 'User' table by username
-    user_in_db = MOCK_USERS_DB.get(username)
-    
-    # 2. Check if user exists and password is correct
-    if not user_in_db or not verify_password(password, user_in_db["password_hash"]):
+    # --- DATABASE LOGIC (DynamoDB) ---
+    # 1. Retrieve user from DynamoDB
+    result = users_table.get_item(Key={"username": username})
+
+    if "Item" not in result:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    #
+
+    user_in_db = result["Item"]
+
+    # 2. Verify password
+    if not verify_password(password, user_in_db["password_hash"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     # --- END DATABASE LOGIC ---
-    #
     
     # 3. Create the JWT token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -141,4 +139,9 @@ async def login_for_access_token(
     # 4. Return the token and user info
     user_info = {"name": user_in_db["name"], "username": user_in_db["username"]}
     
-    return {"access_token": access_token, "token_type": "bearer", "user": user_info}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer", 
+        "user": user_info
+    }
+    
