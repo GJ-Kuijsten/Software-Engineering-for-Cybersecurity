@@ -106,6 +106,19 @@ async def login_for_access_token(
     username = form_data.username
     password = form_data.password
 
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": username, "id": "dummy-id"},
+        expires_delta=access_token_expires
+    )
+
+    # FOR NOW (remove later)
+    return {
+        "access_token": access_token,
+        "token_type": "bearer", 
+        "user": {"name": username, "username": username}
+    }
+
     #
     # --- DATABASE LOGIC (DynamoDB) ---
     # 1. Retrieve user from DynamoDB

@@ -138,10 +138,8 @@
 					const token = sessionStorage.getItem("userToken");
 
 					if (!userStr || !token) {
-						// Not logged in, redirect to login
 						window.location.href = "login.html";
 					} else {
-						// Logged in, set up the page
 						currentUser = JSON.parse(userStr);
 						userToken = token;
 						setupPage();
@@ -151,94 +149,87 @@
 				// --- DOM Elements ---
 				const userName = document.getElementById("user-name");
 				const logoutBtn = document.getElementById("logout-btn");
-
 				const translateBtn = document.getElementById("translate-btn");
 				const translateBtnText = document.getElementById("translate-btn-text");
 				const translateSpinner = document.getElementById("translate-spinner");
 				const sourceText = document.getElementById("source-text");
 				const targetText = document.getElementById("target-text");
 				const targetLang = document.getElementById("target-lang");
-
 				const historyContainer = document.getElementById("history-container");
 				const historyPlaceholder = document.getElementById(
 					"history-placeholder"
 				);
-
 				const messageBox = document.getElementById("message-box");
 				const messageText = document.getElementById("message-text");
 
 				// --- Page Setup ---
 				function setupPage() {
-					// Set user greeting
 					userName.textContent = `Welcome, ${currentUser.name}!`;
-
-					// Add event listeners
 					logoutBtn.addEventListener("click", () => {
 						sessionStorage.clear();
 						window.location.href = "login.html";
 					});
-
 					translateBtn.addEventListener("click", handleTranslate);
-
-					// Fetch initial data
-					fetchMockHistory();
+					fetchHistory(); // Load real history
 				}
 
-				// --- MOCK API CALLS ---
+				// --- API CALLS ---
 
-				function fetchMockHistory() {
-					// In a real app, this would be a fetch() call using the userToken
-					setTimeout(() => {
-						translationHistory = [
-							{
-								id: 123,
-								source: "Hello",
-								target: "Hallo",
-								sourceLang: "en",
-								targetLang: "nl",
+				async function fetchHistory() {
+					try {
+						const response = await fetch("/api/history", {
+							method: "GET",
+							headers: {
+								Authorization: `Bearer ${userToken}`,
 							},
-							{
-								id: 124,
-								source: "How are you?",
-								target: "Hoe gaat het?",
-								sourceLang: "en",
-								targetLang: "nl",
-							},
-						];
+						});
+
+						if (response.status === 401) {
+							// Token expired or invalid
+							sessionStorage.clear();
+							window.location.href = "login.html";
+							return;
+						}
+
+						const data = await response.json();
+						// The backend returns: source_text, translated_text
+						// We map it to match our frontend render logic if needed,
+						// or just pass it directly if we update the render function.
+						// Let's map it here for consistency with your UI code:
+						translationHistory = data.map((item) => ({
+							...item,
+							source: item.source_text, // Map backend field to UI field
+							target: item.translated_text, // Map backend field to UI field
+						}));
+
 						renderHistory();
-					}, 500);
+					} catch (error) {
+						console.error("Failed to fetch history:", error);
+					}
 				}
 
-				async function mockTranslateAPI(text, lang) {
-					// const response = await fetch('/api/translate', {
-					//     method: 'POST',
-					//     headers: {
-					//         'Content-Type': 'application/json',
-					//         'Authorization': `Bearer ${userToken}` // <-- Token is used here
-					//     },
-					//     body: JSON.stringify({ text, target_lang: lang })
-					// });
-					// ...
-
-					return new Promise((resolve) => {
-						setTimeout(() => {
-							let mockTranslation = "";
-							if (lang === "nl") {
-								mockTranslation = `${text}`;
-							} else if (lang === "bg") {
-								mockTranslation = `${text}`;
-							}
-
-							const newHistoryItem = {
-								id: Date.now(),
-								source: text,
-								target: mockTranslation,
-								sourceLang: "en",
-								targetLang: lang,
-							};
-							resolve(newHistoryItem);
-						}, 1000);
+				async function translateTextAPI(text, lang) {
+					const response = await fetch("/api/translate", {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							Authorization: `Bearer ${userToken}`,
+						},
+						body: JSON.stringify({ text: text, target_lang: lang }),
 					});
+
+					if (!response.ok) {
+						const err = await response.json();
+						throw new Error(err.detail || "Translation failed");
+					}
+
+					const item = await response.json();
+					// Map backend response to UI format
+					return {
+						...item,
+						source: item.source_text,
+						target: item.translated_text,
+					};
 				}
 
 				// --- Event Handlers ---
@@ -251,22 +242,29 @@
 					setLoading(true);
 
 					try {
-						const newHistoryItem = await mockTranslateAPI(
+						const newHistoryItem = await translateTextAPI(
 							textToTranslate,
 							selectedLang
 						);
+
 						targetText.value = newHistoryItem.target;
-						translationHistory.unshift(newHistoryItem); // Add to beginning
+						translationHistory.unshift(newHistoryItem);
 						renderHistory();
 					} catch (error) {
-						showMessage("Translation failed. Please try again.", "error");
+						showMessage(error.message, "error");
+						if (
+							error.message.includes("Unauthorized") ||
+							error.message.includes("credentials")
+						) {
+							sessionStorage.clear();
+							window.location.href = "login.html";
+						}
 					} finally {
 						setLoading(false);
 					}
 				}
 
 				// --- UI Rendering ---
-
 				function setLoading(isLoading) {
 					if (isLoading) {
 						translateBtn.disabled = true;
@@ -285,8 +283,6 @@
 					items.forEach((item) => item.remove());
 
 					if (translationHistory.length === 0) {
-						historyPlaceholder.textContent =
-							"No translations yet. Try translating some text!";
 						historyPlaceholder.classList.remove("hidden");
 						return;
 					}
@@ -296,13 +292,14 @@
 					translationHistory.forEach((item) => {
 						const el = document.createElement("div");
 						el.className = "history-item bg-gray-700 p-4 rounded-md mb-3";
-						const langLabel = item.targetLang === "nl" ? "Dutch" : "Bulgarian";
+						const langLabel = item.target_lang === "nl" ? "Dutch" : "Bulgarian";
 
+						// Note: using item.source and item.target because we mapped them above
 						el.innerHTML = `
-                        <p class="text-sm text-gray-400 mb-1">English &raquo; ${langLabel}</p>
-                        <p class="font-semibold text-gray-100">${item.source}</p>
-                        <p class="text-blue-300">${item.target}</p>
-                    `;
+                    <p class="text-sm text-gray-400 mb-1">English &raquo; ${langLabel}</p>
+                    <p class="font-semibold text-gray-100">${item.source}</p>
+                    <p class="text-blue-300">${item.target}</p>
+                `;
 						historyContainer.appendChild(el);
 					});
 				}
@@ -315,13 +312,9 @@
 						"bg-blue-500"
 					);
 
-					if (type === "success") {
-						messageBox.classList.add("bg-green-500");
-					} else if (type === "info") {
-						messageBox.classList.add("bg-blue-500");
-					} else {
-						messageBox.classList.add("bg-red-500");
-					}
+					if (type === "success") messageBox.classList.add("bg-green-500");
+					else if (type === "info") messageBox.classList.add("bg-blue-500");
+					else messageBox.classList.add("bg-red-500");
 
 					messageBox.classList.remove("hidden");
 					setTimeout(() => {
@@ -330,7 +323,7 @@
 				}
 
 				// --- Initial Load ---
-				checkAuth(); // Run the auth check as soon as the page loads
+				checkAuth();
 			});
 		</script>
 	</body>

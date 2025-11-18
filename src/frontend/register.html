@@ -132,21 +132,27 @@
 					const username = document.getElementById("register-username").value;
 					const password = document.getElementById("register-password").value;
 
-					// --- MOCK API CALL ---
-					// In a real app, this would be a fetch() call to '/api/register'
-					await new Promise((res) => setTimeout(res, 1000));
+					try {
+						// Send JSON data for registration
+						const response = await fetch("/api/register", {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({ name, username, password }),
+						});
 
-					// Mock success
-					showMessage("Registration successful! Please log in.", "success");
+						if (!response.ok) {
+							const errData = await response.json();
+							throw new Error(errData.detail || "Registration failed");
+						}
 
-					// Redirect to login page after a short delay
-					setTimeout(() => {
-						window.location.href = "login.html";
-					}, 2000);
-
-					// In case of mock failure:
-					// showMessage('Username already exists', 'error');
-					// setLoading(false);
+						showMessage("Registration successful! Please log in.", "success");
+						setTimeout(() => {
+							window.location.href = "login.html";
+						}, 2000);
+					} catch (error) {
+						showMessage(error.message, "error");
+						setLoading(false);
+					}
 				});
 
 				function setLoading(isLoading) {

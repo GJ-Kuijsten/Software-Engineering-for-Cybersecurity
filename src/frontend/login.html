@@ -111,7 +111,7 @@
 				const messageBox = document.getElementById("message-box");
 				const messageText = document.getElementById("message-text");
 
-				// Clear any old session data on visiting the login page
+				// Clear old session data
 				sessionStorage.clear();
 
 				loginForm.addEventListener("submit", async (e) => {
@@ -121,25 +121,35 @@
 					const username = document.getElementById("login-username").value;
 					const password = document.getElementById("login-password").value;
 
-					// --- MOCK API CALL ---
-					// In a real app, this would be a fetch() call to '/api/login'
-					await new Promise((res) => setTimeout(res, 500));
+					try {
+						// FastAPI OAuth2PasswordRequestForm expects form-urlencoded data
+						const formData = new URLSearchParams();
+						formData.append("username", username);
+						formData.append("password", password);
 
-					// Mock check
-					if (password === "pass") {
-						// Mock success condition
-						const mockUser = { id: 1, name: "Mock User", username: username };
-						const mockToken = "mock-jwt-token-12345";
+						const response = await fetch("/api/login", {
+							method: "POST",
+							headers: {
+								"Content-Type": "application/x-www-form-urlencoded",
+							},
+							body: formData,
+						});
 
-						// Save to session storage
-						sessionStorage.setItem("currentUser", JSON.stringify(mockUser));
-						sessionStorage.setItem("userToken", mockToken);
+						if (!response.ok) {
+							const errData = await response.json();
+							throw new Error(errData.detail || "Login failed");
+						}
 
-						// Redirect to the main app
+						const data = await response.json();
+
+						// Save REAL token and user info to session storage
+						// The backend returns { access_token, token_type, user: {...} }
+						sessionStorage.setItem("currentUser", JSON.stringify(data.user));
+						sessionStorage.setItem("userToken", data.access_token);
+
 						window.location.href = "index.html";
-					} else {
-						// Mock failure
-						showMessage("Invalid username or password", "error");
+					} catch (error) {
+						showMessage(error.message, "error");
 						setLoading(false);
 					}
 				});
