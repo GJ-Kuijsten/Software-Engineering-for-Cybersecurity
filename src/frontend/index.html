@@ -177,7 +177,7 @@
 
 				async function fetchHistory() {
 					try {
-						const response = await fetch("https://k9dg1bxom4.execute-api.eu-north-1.amazonaws.com/prod/history", {
+						const response = await fetch("https://k9dg1bxom4.execute-api.eu-north-1.amazonaws.com/prod/TranslationHistory", {
 							method: "GET",
 							headers: {
 								Authorization: `Bearer ${userToken}`,
@@ -209,7 +209,7 @@
 				}
 
 				async function translateTextAPI(text, lang) {
-					const response = await fetch("https://k9dg1bxom4.execute-api.eu-north-1.amazonaws.com/prod/translate", {
+					const response = await fetch("https://k9dg1bxom4.execute-api.eu-north-1.amazonaws.com/prod/OllamaTranslationHandler", {
 						method: "POST",
 						headers: {
 							"Content-Type": "application/json",
