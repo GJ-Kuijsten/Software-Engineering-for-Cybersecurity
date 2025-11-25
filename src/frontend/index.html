@@ -107,7 +107,7 @@
 				// Load Translation History
 				// ------------------------------
 				async function fetchHistory() {
-					const res = await fetch(`${HISTORY_URL}?user_id=${currentUser}`);
+					const res = await fetch(`${HISTORY_URL}`);
 					const data = await res.json();
 
 					const container = document.getElementById("history-container");
@@ -171,12 +171,12 @@
 							alert("Translation failed: " + (data.error || "Unknown error"));
 							return;
 						}
+
+						document.getElementById("target-text").value = data.translation;
 					} catch (err) {
 						alert("An error occurred: " + err.message);
 						return;
 					}
-
-					document.getElementById("target-text").value = data.translation;
 
 					// Reload history
 					fetchHistory();
