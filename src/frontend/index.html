@@ -1,150 +1,187 @@
 <!DOCTYPE html>
 <html lang="en" class="h-full">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Translator App</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Translator App</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+	</head>
 
-<body class="bg-gray-900 text-white h-full flex flex-col antialiased">
+	<body class="bg-gray-900 text-white h-full flex flex-col antialiased">
+		<header class="bg-gray-800 shadow-md p-4 flex justify-between items-center">
+			<h1 class="text-2xl font-bold">Power Translator</h1>
+			<div id="user-greeting" class="flex items-center gap-2">
+				<span id="user-name" class="font-semibold"></span>
+				<button
+					id="logout-btn"
+					class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md"
+				>
+					Log Out
+				</button>
+			</div>
+		</header>
 
-<header class="bg-gray-800 shadow-md p-4 flex justify-between items-center">
-    <h1 class="text-2xl font-bold">Power Translator</h1>
-    <div id="user-greeting" class="flex items-center gap-2">
-        <span id="user-name" class="font-semibold"></span>
-        <button id="logout-btn" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md">
-            Log Out
-        </button>
-    </div>
-</header>
+		<main id="translator-page" class="flex-grow p-4 md:p-8 flex flex-col gap-6">
+			<div
+				class="w-full max-w-5xl mx-auto bg-gray-800 rounded-xl shadow-lg p-6"
+			>
+				<div class="flex flex-col md:flex-row gap-4">
+					<div class="flex-1">
+						<h2 class="font-semibold mb-2">English</h2>
+						<textarea
+							id="source-text"
+							class="w-full h-48 bg-gray-700 p-3 rounded-md"
+							placeholder="Enter text..."
+						></textarea>
+					</div>
 
-<main id="translator-page" class="flex-grow p-4 md:p-8 flex flex-col gap-6">
+					<div class="flex-1">
+						<div class="flex justify-between items-center mb-2">
+							<h2 class="font-semibold">Target</h2>
+							<select
+								id="target-lang"
+								class="bg-gray-700 border border-gray-600 rounded-md p-1.5 text-white"
+							>
+								<option value="NL">Dutch</option>
+								<option value="BG">Bulgarian</option>
+							</select>
+						</div>
+						<textarea
+							id="target-text"
+							readonly
+							class="w-full h-48 bg-gray-700 p-3 rounded-md text-gray-300"
+						></textarea>
+					</div>
+				</div>
 
-    <div class="w-full max-w-5xl mx-auto bg-gray-800 rounded-xl shadow-lg p-6">
-        <div class="flex flex-col md:flex-row gap-4">
-            <div class="flex-1">
-                <h2 class="font-semibold mb-2">English</h2>
-                <textarea id="source-text" class="w-full h-48 bg-gray-700 p-3 rounded-md" placeholder="Enter text..."></textarea>
-            </div>
+				<div class="mt-4 flex justify-center">
+					<button
+						id="translate-btn"
+						class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-md"
+					>
+						<span id="translate-btn-text">Translate</span>
+					</button>
+				</div>
+			</div>
 
-            <div class="flex-1">
-                <div class="flex justify-between items-center mb-2">
-                    <h2 class="font-semibold">Target</h2>
-                    <select id="target-lang" class="bg-gray-700 border border-gray-600 rounded-md p-1.5 text-white">
-                        <option value="NL">Dutch</option>
-                        <option value="BG">Bulgarian</option>
-                    </select>
-                </div>
-                <textarea id="target-text" readonly class="w-full h-48 bg-gray-700 p-3 rounded-md text-gray-300"></textarea>
-            </div>
-        </div>
+			<div class="w-full max-w-5xl mx-auto flex-grow flex flex-col">
+				<h2 class="text-xl font-semibold mb-4">Translation History</h2>
+				<div
+					id="history-container"
+					class="flex-grow bg-gray-800 rounded-xl shadow-lg p-6 overflow-y-auto"
+				>
+					<div id="history-placeholder" class="text-gray-400 text-center py-10">
+						Loading history...
+					</div>
+				</div>
+			</div>
+		</main>
 
-        <div class="mt-4 flex justify-center">
-            <button id="translate-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-md">
-                <span id="translate-btn-text">Translate</span>
-            </button>
-        </div>
-    </div>
+		<script>
+			document.addEventListener("DOMContentLoaded", () => {
+				const HISTORY_URL =
+					"https://8ac60j2lnf.execute-api.eu-north-1.amazonaws.com/prod/TranslationHistory";
+				const TRANSLATE_URL =
+					"https://8ac60j2lnf.execute-api.eu-north-1.amazonaws.com/prod/OllamaTranslationHandler";
 
-    <div class="w-full max-w-5xl mx-auto flex-grow flex flex-col">
-        <h2 class="text-xl font-semibold mb-4">Translation History</h2>
-        <div id="history-container" class="flex-grow bg-gray-800 rounded-xl shadow-lg p-6 overflow-y-auto">
-            <div id="history-placeholder" class="text-gray-400 text-center py-10">Loading history...</div>
-        </div>
-    </div>
+				// ------------------------------
+				// Load current user
+				// ------------------------------
+				let currentUser = sessionStorage.getItem("currentUser");
 
-</main>
+				// If not logged in, redirect
+				if (!currentUser) window.location.href = "login.html";
 
-<script>
-document.addEventListener("DOMContentLoaded", () => {
+				// Since we saved a STRING, not an object → no `.username`
+				document.getElementById(
+					"user-name"
+				).textContent = `Welcome, ${currentUser}`;
 
-    const HISTORY_URL = "https://8ac60j2lnf.execute-api.eu-north-1.amazonaws.com/prod/TranslationHistory";
-    const TRANSLATE_URL = "https://8ac60j2lnf.execute-api.eu-north-1.amazonaws.com/prod/OllamaTranslationHandler";
+				// Logout
+				document.getElementById("logout-btn").onclick = () => {
+					sessionStorage.clear();
+					window.location.href = "login.html";
+				};
 
-    // ------------------------------
-    // Load current user
-    // ------------------------------
-    let currentUser = sessionStorage.getItem("currentUser");
+				// ------------------------------
+				// Load Translation History
+				// ------------------------------
+				async function fetchHistory() {
+					const res = await fetch(`${HISTORY_URL}?user_id=${currentUser}`);
+					const data = await res.json();
 
-    // If not logged in, redirect
-    if (!currentUser) window.location.href = "login.html";
+					const container = document.getElementById("history-container");
+					const placeholder = document.getElementById("history-placeholder");
 
-    // Since we saved a STRING, not an object → no `.username`
-    document.getElementById("user-name").textContent = `Welcome, ${currentUser}`;
+					container.innerHTML = "";
+					placeholder.classList.add("hidden");
 
-    // Logout
-    document.getElementById("logout-btn").onclick = () => {
-        sessionStorage.clear();
-        window.location.href = "login.html";
-    };
+					if (!data.history || data.history.length === 0) {
+						container.innerHTML = `<p class="text-gray-400 text-center">No history found.</p>`;
+						return;
+					}
 
-    // ------------------------------
-    // Load Translation History
-    // ------------------------------
-    async function fetchHistory() {
-        const res = await fetch(`${HISTORY_URL}?user_id=${currentUser}`);
-        const data = await res.json();
-
-        const container = document.getElementById("history-container");
-        const placeholder = document.getElementById("history-placeholder");
-
-        container.innerHTML = ""; 
-        placeholder.classList.add("hidden");
-
-        if (!data.history || data.history.length === 0) {
-            container.innerHTML = `<p class="text-gray-400 text-center">No history found.</p>`;
-            return;
-        }
-
-        data.history.forEach(item => {
-            const div = document.createElement("div");
-            div.classList = "bg-gray-700 p-3 rounded-md mb-3";
-            div.innerHTML = `
+					data.history.forEach((item) => {
+						const div = document.createElement("div");
+						div.classList = "bg-gray-700 p-3 rounded-md mb-3";
+						div.innerHTML = `
                 <p class="text-sm text-gray-400">English → ${item.TargetLanguage}</p>
                 <p class="font-semibold">${item.SourceText}</p>
                 <p class="text-blue-300">${item.Translation}</p>
             `;
-            container.appendChild(div);
-        });
-    }
+						container.appendChild(div);
+					});
+				}
 
-    fetchHistory();
+				fetchHistory();
 
-    // ------------------------------
-    // Translation Request
-    // ------------------------------
-    document.getElementById("translate-btn").onclick = async () => {
-        const text = document.getElementById("source-text").value.trim();
-        const lang = document.getElementById("target-lang").value;
+				// ------------------------------
+				// Translation Request
+				// ------------------------------
+				document.getElementById("translate-btn").onclick = async () => {
+					const text = document.getElementById("source-text").value.trim();
+					const lang = document.getElementById("target-lang").value;
 
-        if (!text) return alert("Please enter text to translate.");
+					if (!text) return alert("Please enter text to translate.");
 
-        const res = await fetch(TRANSLATE_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                text,
-                target_lang: lang,
-                user_id: currentUser
-            })
-        });
+					const token = sessionStorage.getItem("authToken");
 
-        const data = await res.json();
+					if (!token) {
+						alert("You are not logged in!");
+						window.location.href = "login.html";
+						return;
+					}
 
-        if (!res.ok) {
-            alert("Translation failed: " + (data.error || "Unknown error"));
-            return;
-        }
+					try {
+						const res = await fetch(TRANSLATE_URL, {
+							method: "POST",
+							headers: {
+								"Content-Type": "application/json",
+								Authorization: `Bearer ${token}`,
+							},
+							body: JSON.stringify({
+								text,
+								target_lang: lang,
+							}),
+						});
 
-        document.getElementById("target-text").value = data.translation;
+						const data = await res.json();
 
-        // Reload history
-        fetchHistory();
-    };
+						if (!res.ok) {
+							alert("Translation failed: " + (data.error || "Unknown error"));
+							return;
+						}
+					} catch (err) {
+						alert("An error occurred: " + err.message);
+						return;
+					}
 
-});
-</script>
+					document.getElementById("target-text").value = data.translation;
 
-</body>
+					// Reload history
+					fetchHistory();
+				};
+			});
+		</script>
+	</body>
 </html>
