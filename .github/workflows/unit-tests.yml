@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    name: Run All Lambda Tests
+    name: Run All Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -37,3 +37,12 @@ jobs:
       - name: Run Register Tests
         run: npm test
         working-directory: ./src/backend/LambdaRegisterHandler
+
+        # --- TEST 3: FRONTEND SECURITY ---
+      - name: Install Test Dependencies
+        run: npm ci
+        working-directory: ./tests
+
+      - name: Run Frontend Security Tests
+        run: npm run test-frontend
+        working-directory: ./tests
