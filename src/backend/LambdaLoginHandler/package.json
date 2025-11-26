@@ -1,6 +1,37 @@
 {
-    "dependencies": {
-        "bcryptjs": "^2.4.3",
-        "jsonwebtoken": "^9.0.2"
-    }
+	"name": "lambdaloginhandler",
+	"version": "1.0.0",
+	"main": "index.mjs",
+	"type": "module",
+	"scripts": {
+		"test": "jest"
+	},
+	"jest": {
+		"testEnvironment": "node",
+		"setupFiles": [
+			"<rootDir>/jest.setup.js"
+		],
+		"transform": {
+			"^.+\\.m?js$": "babel-jest"
+		},
+		"moduleFileExtensions": [
+			"js",
+			"mjs",
+			"json",
+			"node"
+		]
+	},
+	"dependencies": {
+		"@aws-sdk/client-dynamodb": "^3.600.0",
+		"bcryptjs": "^2.4.3",
+		"jsonwebtoken": "^9.0.2"
+	},
+	"devDependencies": {
+		"@babel/core": "^7.24.0",
+		"@babel/preset-env": "^7.24.0",
+		"aws-sdk-client-mock": "^4.0.0",
+		"babel-jest": "^29.7.0",
+		"dotenv": "^17.2.3",
+		"jest": "^29.7.0"
+	}
 }
