@@ -10,8 +10,6 @@ jest.mock("bcryptjs");
 jest.mock("jsonwebtoken");
 
 describe("Lambda Security Tests", () => {
-	const OLD_ENV = process.env;
-
 	beforeEach(() => {
 		jest.clearAllMocks();
 		ddbMock.reset();
