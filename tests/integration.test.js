@@ -54,7 +54,7 @@ describe("AWS Production Integration Tests (Using Fetch)", () => {
 
 	// --- TEST 3: Security Barrier ---
 	test("3. Should block access without a token", async () => {
-		const payload = { text: "Secret", target_lang: "French" };
+		const payload = { text: "Secret", target_lang: "NL" };
 
 		const response = await fetch(`${API_URL}/OllamaTranslationHandler`, {
 			method: "POST",
