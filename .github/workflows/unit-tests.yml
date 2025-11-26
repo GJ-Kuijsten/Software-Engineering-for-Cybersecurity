@@ -1,6 +1,5 @@
-name: Security Unit Tests
+name: Unit Tests
 
-# Trigger: Run this on every push to the main branch
 on:
   push:
     branches: ["main", "master"]
@@ -9,26 +8,32 @@ on:
 
 jobs:
   test:
-    name: Run Tests
+    name: Run All Lambda Tests
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Download your code to the virtual machine
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. Install Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      # 3. Install Dependencies
-      - name: Install Dependencies
+      # --- TEST 1: LOGIN HANDLER ---
+      - name: Install Login Dependencies
         run: npm ci
         working-directory: ./src/backend/LambdaLoginHandler
 
-      # 4. Run the Tests
-      - name: Run Jest Tests
+      - name: Run Login Tests
         run: npm test
         working-directory: ./src/backend/LambdaLoginHandler
+
+      # --- TEST 2: REGISTER HANDLER ---
+      - name: Install Register Dependencies
+        run: npm ci
+        working-directory: ./src/backend/LambdaRegisterHandler
+
+      - name: Run Register Tests
+        run: npm test
+        working-directory: ./src/backend/LambdaRegisterHandler
