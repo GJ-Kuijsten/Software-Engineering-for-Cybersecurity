@@ -15,16 +15,20 @@ const docClient = DynamoDBDocumentClient.from(dbClient);
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
+// Keep this exactly the same
 const getCacheKey = (text, targetLang) => {
 	return `${text.toLowerCase().trim()}:${targetLang}`;
 };
 
+// Keep this exactly the same
 const getTranslationModel = () => "tinyllama";
 
 export const handler = async (event) => {
+	// ---------------------------
+	// 0. JWT Authentication
+	// ---------------------------
 	let username = "";
 
-	// check if user is logged in
 	try {
 		const authHeader =
 			event.headers.Authorization || event.headers.authorization;
@@ -34,24 +38,25 @@ export const handler = async (event) => {
 		}
 
 		const token = authHeader.split(" ")[1];
-
 		if (!token) {
 			return corsResponse(401, { error: "Unauthorized" });
 		}
 
 		const decoded = jwt.verify(token, JWT_SECRET);
-		username = decoded.username;
+		username = decoded.username; // KEEP THIS EXACT
 	} catch (err) {
 		console.error("Auth Error:", err);
 		return corsResponse(401, { message: "Invalid or expired token" });
 	}
 
+	// ---------------------------
+	// 1. Parse input
+	// ---------------------------
 	try {
 		if (!OLLAMA_HOST_URL) {
 			return corsResponse(500, { error: "OLLAMA_HOST_URL not set" });
 		}
 
-		// Safe JSON parsing
 		let request = {};
 		try {
 			request = JSON.parse(event.body || "{}");
@@ -71,26 +76,30 @@ export const handler = async (event) => {
 
 		const cacheKey = getCacheKey(text, targetLangCode);
 
-		// 1. CHECK CACHE
-		// try {
-		//     const cacheRes = await docClient.send(
-		//         new GetCommand({
-		//             TableName: CACHE_TABLE_NAME,
-		//             Key: { CacheKey: cacheKey },
-		//         })
-		//     );
+		// ---------------------------
+		// 2. CHECK CACHE (fixed)
+		// ---------------------------
+		try {
+			const cacheRes = await docClient.send(
+				new GetCommand({
+					TableName: CACHE_TABLE_NAME,
+					Key: { chache_key: cacheKey }, // FIXED: matches your actual DynamoDB key
+				})
+			);
 
-		//     if (cacheRes.Item) {
-		//         return corsResponse(200, {
-		//             translation: cacheRes.Item.Translation,
-		//             source: "cache",
-		//         });
-		//     }
-		// } catch (err) {
-		//     console.error("Cache read error:", err);
-		// }
+			if (cacheRes.Item) {
+				return corsResponse(200, {
+					translation: cacheRes.Item.translation,
+					source: "cache",
+				});
+			}
+		} catch (err) {
+			console.error("Cache read error:", err);
+		}
 
-		// 2. CALL OLLAMA
+		// ---------------------------
+		// 3. CALL OLLAMA
+		// ---------------------------
 		const prompt = `Translate the following English text to ${targetLanguageName}, providing only the translated text: "${text}"`;
 
 		let translation = "";
@@ -98,12 +107,9 @@ export const handler = async (event) => {
 		try {
 			const response = await fetch(`http://${OLLAMA_HOST_URL}/api/generate`, {
 				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				timeout: 60000,
+				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					model: getTranslationModel(),
+					model: getTranslationModel(), // KEEP tinyllama
 					prompt: prompt,
 					stream: false,
 					options: { temperature: 0.1 },
@@ -111,66 +117,59 @@ export const handler = async (event) => {
 			});
 
 			if (!response.ok) {
-				throw new Error(`Ollama server error: ${response.statusText}`);
+				throw new Error(`Ollama error: ${response.statusText}`);
 			}
 
 			const data = await response.json();
 			translation = (data.response || "").trim();
-
-			// const ollamaResponse = await axios.post(
-			//     `${OLLAMA_HOST_URL}/api/generate`,
-			//     {
-			//         model: getTranslationModel(),
-			//         prompt: prompt,
-			//         stream: false,
-			//         options: { temperature: 0.1 },
-			//     },
-			//     { headers: { "Content-Type": "application/json" }, timeout: 60000 }
-			// );
-
-			// translation = (ollamaResponse.data.response || "").trim();
 		} catch (err) {
 			console.error("Ollama error:", err);
 			return corsResponse(503, { error: "Ollama unreachable: " + err.message });
 		}
 
-		// 3. SAVE TO CACHE
-		// try {
-		//     await docClient.send(
-		//         new PutCommand({
-		//             TableName: CACHE_TABLE_NAME,
-		//             Item: {
-		//                 CacheKey: cacheKey,
-		//                 SourceText: text,
-		//                 TargetLanguage: targetLangCode,
-		//                 Translation: translation,
-		//                 TTL: Math.floor(Date.now() / 1000) + 86400 * 30,
-		//             },
-		//         })
-		//     );
-		// } catch (err) {
-		//     console.error("Cache write error:", err);
-		// }
+		// ---------------------------
+		// 4. SAVE TO CACHE (fixed)
+		// ---------------------------
+		try {
+			await docClient.send(
+				new PutCommand({
+					TableName: CACHE_TABLE_NAME,
+					Item: {
+						chache_key: cacheKey, // FIXED key
+						source_text: text,
+						target_language: targetLangCode,
+						translation: translation,
+						created_at: new Date().toISOString(),
+					},
+				})
+			);
+		} catch (err) {
+			console.error("Cache write error:", err);
+		}
 
-		// // 4. SAVE TO USER HISTORY
-		// try {
-		//     await docClient.send(
-		//         new PutCommand({
-		//             TableName: HISTORY_TABLE,
-		//             Item: {
-		//                 user_id: user_id,
-		//                 timestamp: Date.now(),
-		//                 SourceText: text,
-		//                 TargetLanguage: targetLangCode,
-		//                 Translation: translation,
-		//             },
-		//         })
-		//     );
-		// } catch (err) {
-		//     console.error("History write error:", err);
-		// }
+		// ---------------------------
+		// 5. SAVE TO USER HISTORY (fully fixed)
+		// ---------------------------
+		try {
+			await docClient.send(
+				new PutCommand({
+					TableName: HISTORY_TABLE,
+					Item: {
+						user_id: username, // keep username as user ID
+						timestamp: new Date().toISOString(), // FIXED sort key type
+						source_text: text,
+						target_language: targetLangCode,
+						translation: translation,
+					},
+				})
+			);
+		} catch (err) {
+			console.error("History write error:", err);
+		}
 
-		// 5. RETURN RESULT
+		// ---------------------------
+		// 6. RETURN RESULT
+		// ---------------------------
 		return corsResponse(200, {
 			translation: translation,
 			source: "ollama",
@@ -181,7 +180,9 @@ export const handler = async (event) => {
 	}
 };
 
-// CORS
+// ---------------------------
+// CORS Helper
+// ---------------------------
 function corsResponse(statusCode, body) {
 	return {
 		statusCode,
