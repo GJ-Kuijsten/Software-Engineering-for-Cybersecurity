@@ -33,6 +33,9 @@
                     class="w-full bg-gray-700 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                 />
+                <p id="password-error" class="text-red-400 text-sm mt-2 hidden">
+                    Password must be at least 12 characters and include letters, numbers, and symbols.
+                </p>
             </div>
 
             <button 
@@ -52,11 +55,32 @@ document.addEventListener("DOMContentLoaded", () => {
     const REGISTER_URL = 
         "https://8ac60j2lnf.execute-api.eu-north-1.amazonaws.com/prod/User/Register";
 
+    const passwordError = document.getElementById("password-error");
+
+    // Password must be:
+    // - 12+ chars
+    // - contain letter
+    // - contain number
+    // - contain symbol
+    function validatePassword(password) {
+        const hasLetter = /[A-Za-z]/.test(password);
+        const hasNumber = /[0-9]/.test(password);
+        const hasSymbol = /[^A-Za-z0-9]/.test(password);
+        return password.length >= 12 && hasLetter && hasNumber && hasSymbol;
+    }
+
     document.getElementById("register-form").onsubmit = async (e) => {
         e.preventDefault();
 
         const username = document.getElementById("register-username").value;
         const password = document.getElementById("register-password").value;
+
+        if (!validatePassword(password)) {
+            passwordError.classList.remove("hidden");
+            return;
+        } else {
+            passwordError.classList.add("hidden");
+        }
 
         try {
             const res = await fetch(REGISTER_URL, {
@@ -85,5 +109,4 @@ document.addEventListener("DOMContentLoaded", () => {
 
 </body>
 </html>
-
 
