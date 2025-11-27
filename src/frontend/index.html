@@ -1,209 +1,188 @@
 <!DOCTYPE html>
 <html lang="en" class="h-full">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Translator App</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Translator App</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+	</head>
 
-<body class="bg-gray-900 text-white h-full flex flex-col antialiased">
-<header class="bg-gray-800 shadow-md p-4 flex justify-between items-center">
-    <h1 class="text-2xl font-bold">Power Translator</h1>
-    <div id="user-greeting" class="flex items-center gap-2">
-        <span id="user-name" class="font-semibold"></span>
-        <button
-            id="logout-btn"
-            class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md"
-        >
-            Log Out
-        </button>
-    </div>
-</header>
+	<body class="bg-gray-900 text-white h-full flex flex-col antialiased">
+		<header class="bg-gray-800 shadow-md p-4 flex justify-between items-center">
+			<h1 class="text-2xl font-bold">Power Translator</h1>
+			<div id="user-greeting" class="flex items-center gap-2">
+				<span id="user-name" class="font-semibold"></span>
+				<button
+					id="logout-btn"
+					class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md"
+				>
+					Log Out
+				</button>
+			</div>
+		</header>
 
-<main id="translator-page" class="flex-grow p-4 md:p-8 flex flex-col gap-6">
-    <div class="w-full max-w-5xl mx-auto bg-gray-800 rounded-xl shadow-lg p-6">
-        <div class="flex flex-col md:flex-row gap-4">
-            <div class="flex-1">
-                <h2 class="font-semibold mb-2">English</h2>
-                <textarea
-                    id="source-text"
-                    class="w-full h-48 bg-gray-700 p-3 rounded-md"
-                    placeholder="Enter text..."
-                ></textarea>
-            </div>
+		<main id="translator-page" class="flex-grow p-4 md:p-8 flex flex-col gap-6">
+			<div
+				class="w-full max-w-5xl mx-auto bg-gray-800 rounded-xl shadow-lg p-6"
+			>
+				<div class="flex flex-col md:flex-row gap-4">
+					<div class="flex-1">
+						<h2 class="font-semibold mb-2">English</h2>
+						<textarea
+							id="source-text"
+							class="w-full h-48 bg-gray-700 p-3 rounded-md"
+							placeholder="Enter text..."
+						></textarea>
+					</div>
 
-            <div class="flex-1">
-                <div class="flex justify-between items-center mb-2">
-                    <h2 class="font-semibold">Target</h2>
-                    <select
-                        id="target-lang"
-                        class="bg-gray-700 border border-gray-600 rounded-md p-1.5 text-white"
-                    >
-                        <option value="NL">Dutch</option>
-                        <option value="BG">Bulgarian</option>
-                    </select>
-                </div>
-                <textarea
-                    id="target-text"
-                    readonly
-                    class="w-full h-48 bg-gray-700 p-3 rounded-md text-gray-300"
-                ></textarea>
-            </div>
-        </div>
+					<div class="flex-1">
+						<div class="flex justify-between items-center mb-2">
+							<h2 class="font-semibold">Target</h2>
+							<select
+								id="target-lang"
+								class="bg-gray-700 border border-gray-600 rounded-md p-1.5 text-white"
+							>
+								<option value="NL">Dutch</option>
+								<option value="BG">Bulgarian</option>
+							</select>
+						</div>
+						<textarea
+							id="target-text"
+							readonly
+							class="w-full h-48 bg-gray-700 p-3 rounded-md text-gray-300"
+						></textarea>
+					</div>
+				</div>
 
-        <div class="mt-4 flex justify-center">
-            <button
-                id="translate-btn"
-                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-md"
-            >
-                <span id="translate-btn-text">Translate</span>
-            </button>
-        </div>
-    </div>
+				<div class="mt-4 flex justify-center">
+					<button
+						id="translate-btn"
+						class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-md"
+					>
+						<span id="translate-btn-text">Translate</span>
+					</button>
+				</div>
+			</div>
 
-    <div class="w-full max-w-5xl mx-auto flex-grow flex flex-col">
-        <h2 class="text-xl font-semibold mb-4">Translation History</h2>
-        <div
-            id="history-container"
-            class="flex-grow bg-gray-800 rounded-xl shadow-lg p-6 overflow-y-auto"
-        >
-            <div id="history-placeholder" class="text-gray-400 text-center py-10">
-                Loading history...
-            </div>
-        </div>
-    </div>
-</main>
+			<div class="w-full max-w-5xl mx-auto flex-grow flex flex-col">
+				<h2 class="text-xl font-semibold mb-4">Translation History</h2>
+				<div
+					id="history-container"
+					class="flex-grow bg-gray-800 rounded-xl shadow-lg p-6 overflow-y-auto"
+				>
+					<div id="history-placeholder" class="text-gray-400 text-center py-10">
+						Loading history...
+					</div>
+				</div>
+			</div>
+		</main>
 
-<script>
-document.addEventListener("DOMContentLoaded", () => {
+		<script src="app.js"></script>
 
-    const HISTORY_URL =
-        "https://8ac60j2lnf.execute-api.eu-north-1.amazonaws.com/prod/TranslationHistory";
-    const TRANSLATE_URL =
-        "https://8ac60j2lnf.execute-api.eu-north-1.amazonaws.com/prod/OllamaTranslationHandler";
+		<script>
+			document.addEventListener("DOMContentLoaded", () => {
+				const HISTORY_URL =
+					"https://8ac60j2lnf.execute-api.eu-north-1.amazonaws.com/prod/TranslationHistory";
+				const TRANSLATE_URL =
+					"https://8ac60j2lnf.execute-api.eu-north-1.amazonaws.com/prod/OllamaTranslationHandler";
 
-    // ------------------------------
-    // Load user
-    // ------------------------------
-    let currentUser = sessionStorage.getItem("currentUser");
-    if (!currentUser) {
-        window.location.href = "login.html";
-        return;
-    }
+				// ------------------------------
+				// Load user
+				// ------------------------------
+				let currentUser = sessionStorage.getItem("currentUser");
+				if (!currentUser) {
+					window.location.href = "login.html";
+					return;
+				}
 
-    document.getElementById("user-name").textContent = `Welcome, ${currentUser}`;
+				document.getElementById(
+					"user-name"
+				).textContent = `Welcome, ${currentUser}`;
 
-    document.getElementById("logout-btn").onclick = () => {
-        sessionStorage.clear();
-        window.location.href = "login.html";
-    };
+				// Use handleLogout from app.js
+				document.getElementById("logout-btn").onclick = () => {
+					const redirect = handleLogout();
+					window.location.href = redirect;
+				};
 
-    // ------------------------------
-    // Load Translation History
-    // ------------------------------
-   async function fetchHistory() {
-    const token = sessionStorage.getItem("authToken");
+				// ------------------------------
+				// Load Translation History
+				// ------------------------------
+				async function fetchHistory() {
+					const token = sessionStorage.getItem("authToken");
 
-    const res = await fetch(HISTORY_URL, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-            user_id: currentUser
-        })
-    });
+					try {
+						// Logic from Merge: Uses POST, Auth Header, and User ID in Body
+						const res = await fetch(HISTORY_URL, {
+							method: "POST",
+							headers: {
+								"Content-Type": "application/json",
+								Authorization: `Bearer ${token}`,
+							},
+							body: JSON.stringify({
+								user_id: currentUser,
+							}),
+						});
 
-    const data = await res.json();
+						const data = await res.json();
 
-    const container = document.getElementById("history-container");
-    const placeholder = document.getElementById("history-placeholder");
+						const container = document.getElementById("history-container");
+						const placeholder = document.getElementById("history-placeholder");
 
-    container.innerHTML = "";
-    placeholder.classList.add("hidden");
+						// Use Secure Render function from app.js
+						renderHistory(data.history, container);
+					} catch (e) {
+						console.error("Failed to load history", e);
+					}
+				}
 
-    if (!data.history || data.history.length === 0) {
-        container.innerHTML =
-            `<p class="text-gray-400 text-center">No history found.</p>`;
-        return;
-    }
+				fetchHistory();
 
-    // Map codes to full names
-    const languageNames = {
-        NL: "Dutch",
-        BG: "Bulgarian"
-    };
+				// ------------------------------
+				// Translation Request
+				// ------------------------------
+				document.getElementById("translate-btn").onclick = async () => {
+					const text = document.getElementById("source-text").value.trim();
+					const lang = document.getElementById("target-lang").value;
 
-    data.history.forEach(item => {
-        // Fix DynamoDB case-sensitivity
-        const targetLang = item.target_language || item.TargetLanguage;
-        const sourceText = item.source_text || item.SourceText;
-        const translation = item.translation || item.Translation;
+					if (!text) return alert("Please enter text to translate.");
 
-        const div = document.createElement("div");
-        div.classList = "bg-gray-700 p-3 rounded-md mb-3";
+					const token = sessionStorage.getItem("authToken");
+					if (!token) {
+						alert("You are not logged in!");
+						window.location.href = "login.html";
+						return;
+					}
 
-        div.innerHTML = `
-            <p class="text-sm text-gray-400">English → ${languageNames[targetLang] || targetLang || "?"}</p>
-            <p class="font-semibold">${sourceText}</p>
-            <p class="text-blue-300">${translation}</p>
-        `;
+					try {
+						const res = await fetch(TRANSLATE_URL, {
+							method: "POST",
+							headers: {
+								"Content-Type": "application/json",
+								Authorization: `Bearer ${token}`,
+							},
+							body: JSON.stringify({
+								text,
+								target_lang: lang,
+							}),
+						});
 
-        container.appendChild(div);
-    });
-}
+						const data = await res.json();
 
-fetchHistory();
+						if (!res.ok) {
+							alert(`Translation failed: ${data.error || "Unknown error"}`);
+							return;
+						}
 
+						document.getElementById("target-text").value = data.translation;
 
-
-
-    // ------------------------------
-    // Translation Request
-    // ------------------------------
-    document.getElementById("translate-btn").onclick = async () => {
-        const text = document.getElementById("source-text").value.trim();
-        const lang = document.getElementById("target-lang").value;
-
-        if (!text) {
-            alert("Please enter text to translate.");
-            return;
-        }
-
-        const token = sessionStorage.getItem("authToken");
-        if (!token) {
-            alert("You are not logged in!");
-            window.location.href = "login.html";
-            return;
-        }
-
-        const res = await fetch(TRANSLATE_URL, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-                text,
-                target_lang: lang,
-            }),
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-            alert(`Translation failed: ${data.error || "Unknown error"}`);
-            return;
-        }
-
-        document.getElementById("target-text").value = data.translation;
-
-        // Update history
-        fetchHistory();
-    };
-});
-</script>
-</body>
+						// Update history
+						fetchHistory();
+					} catch (err) {
+						alert("An error occurred: " + err.message);
+					}
+				};
+			});
+		</script>
+	</body>
 </html>
