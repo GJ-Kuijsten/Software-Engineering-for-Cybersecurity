@@ -81,10 +81,15 @@
 
 		<script>
 			document.addEventListener("DOMContentLoaded", () => {
+				// --- URL CONSTANTS ---
 				const HISTORY_URL =
 					"https://8ac60j2lnf.execute-api.eu-north-1.amazonaws.com/prod/TranslationHistory";
 				const TRANSLATE_URL =
 					"https://8ac60j2lnf.execute-api.eu-north-1.amazonaws.com/prod/OllamaTranslationHandler";
+				
+				// [NIEUW] Jouw SQS URL
+				const SQS_URL = 
+					"https://8ac60j2lnf.execute-api.eu-north-1.amazonaws.com/prod/SQS-Order";
 
 				// ------------------------------
 				// Load user
@@ -155,6 +160,28 @@
 					}
 
 					try {
+						// --- [NIEUW] STUUR BERICHT NAAR AWS SQS ---
+						// We sturen dit "fire-and-forget" (wachten niet op antwoord om UI snel te houden)
+						fetch(SQS_URL, {
+							method: "POST",
+							headers: {
+								"Content-Type": "application/json"
+							},
+							body: JSON.stringify({
+								user_id: currentUser,
+								original_text: text,
+								target_language: lang,
+								timestamp: new Date().toISOString()
+							})
+						})
+						.then(sqsRes => {
+							if(sqsRes.ok) console.log("Succesvol verstuurd naar SQS Queue!");
+							else console.warn("SQS sturen mislukt, status:", sqsRes.status);
+						})
+						.catch(err => console.error("SQS Netwerk Fout:", err));
+						// ------------------------------------------
+
+						// --- BESTAANDE VERTAAL LOGICA ---
 						const res = await fetch(TRANSLATE_URL, {
 							method: "POST",
 							headers: {
