@@ -2,6 +2,12 @@
  * @jest-environment jsdom
  */
 
+// 1. ADD THIS LINE: Import jest tools explicitly
+import { jest, describe, test, expect } from "@jest/globals";
+
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+
 const { renderHistory, handleLogout } = require("../src/frontend/app.js");
 
 describe("Frontend Security Tests", () => {
@@ -22,6 +28,7 @@ describe("Frontend Security Tests", () => {
 		const imageTag = container.querySelector("img");
 
 		expect(imageTag).toBeNull();
+		// Note: innerHTML normalizes the string, adding quotes. This checks if the text exists safe.
 		expect(container.textContent).toContain("<img src=x");
 	});
 

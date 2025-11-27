@@ -26,8 +26,10 @@ describe("AWS Production Integration Tests (Using Fetch)", () => {
 	test("2. Should successfully translate text using the EC2 Ollama model", async () => {
 		expect(authToken).toBeTruthy();
 
+		const randomNum = Math.floor(Math.random() * 100000);
+
 		const payload = {
-			text: "Hello, how are you?",
+			text: `Hello ${randomNum}`, // randomize to avoid caching
 			target_lang: "NL",
 		};
 
