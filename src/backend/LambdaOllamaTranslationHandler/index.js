@@ -1,5 +1,5 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs"; // [ADDED]
+import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 import {
 	DynamoDBDocumentClient,
 	GetCommand,
@@ -8,9 +8,8 @@ import {
 import jwt from "jsonwebtoken";
 
 const OLLAMA_HOST_URL = process.env.OLLAMA_HOST_URL;
-const SQS_QUEUE_URL = process.env.SQS_QUEUE_URL; // [ADDED] You must set this Env Var
+const SQS_QUEUE_URL = process.env.SQS_QUEUE_URL;
 const CACHE_TABLE_NAME = "TranslationCache";
-// const HISTORY_TABLE = "TranslationHistory"; // [REMOVED] Not needed here anymore
 
 const dbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dbClient);
@@ -18,12 +17,10 @@ const sqsClient = new SQSClient({}); // [ADDED] Initialize SQS
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// Keep this exactly the same
 const getCacheKey = (text, targetLang) => {
 	return `${text.toLowerCase().trim()}:${targetLang}`;
 };
 
-// Keep this exactly the same
 const getTranslationModel = () => "tinyllama";
 
 export const handler = async (event) => {
@@ -46,7 +43,7 @@ export const handler = async (event) => {
 		}
 
 		const decoded = jwt.verify(token, JWT_SECRET);
-		username = decoded.username; // KEEP THIS EXACT
+		username = decoded.username;
 	} catch (err) {
 		console.error("Auth Error:", err);
 		return corsResponse(401, { message: "Invalid or expired token" });
@@ -153,27 +150,25 @@ export const handler = async (event) => {
 		// ---------------------------
 		// 5. SEND TO SQS (Async History)
 		// ---------------------------
-        // [CHANGED] Replaced DynamoDB write with SQS Send
 		try {
-            if (!SQS_QUEUE_URL) {
-                console.warn("SQS_QUEUE_URL is not set, history will be skipped.");
-            } else {
-                await sqsClient.send(
-                    new SendMessageCommand({
-                        QueueUrl: SQS_QUEUE_URL,
-                        MessageBody: JSON.stringify({
-                            user_id: username, // From JWT
-                            timestamp: new Date().toISOString(),
-                            source_text: text,
-                            target_language: targetLangCode,
-                            translation: translation,
-                        }),
-                    })
-                );
-            }
+			if (!SQS_QUEUE_URL) {
+				console.warn("SQS_QUEUE_URL is not set, history will be skipped.");
+			} else {
+				await sqsClient.send(
+					new SendMessageCommand({
+						QueueUrl: SQS_QUEUE_URL,
+						MessageBody: JSON.stringify({
+							user_id: username, // From JWT
+							timestamp: new Date().toISOString(),
+							source_text: text,
+							target_language: targetLangCode,
+							translation: translation,
+						}),
+					})
+				);
+			}
 		} catch (err) {
 			console.error("SQS Send Error:", err);
-            // We catch this so the user still gets their translation even if logging fails
 		}
 
 		// ---------------------------
