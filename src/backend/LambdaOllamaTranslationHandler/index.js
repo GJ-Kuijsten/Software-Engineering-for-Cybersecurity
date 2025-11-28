@@ -1,4 +1,5 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs"; // [ADDED]
 import {
 	DynamoDBDocumentClient,
 	GetCommand,
@@ -7,11 +8,13 @@ import {
 import jwt from "jsonwebtoken";
 
 const OLLAMA_HOST_URL = process.env.OLLAMA_HOST_URL;
+const SQS_QUEUE_URL = process.env.SQS_QUEUE_URL; // [ADDED] You must set this Env Var
 const CACHE_TABLE_NAME = "TranslationCache";
-const HISTORY_TABLE = "TranslationHistory";
+// const HISTORY_TABLE = "TranslationHistory"; // [REMOVED] Not needed here anymore
 
 const dbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dbClient);
+const sqsClient = new SQSClient({}); // [ADDED] Initialize SQS
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -77,13 +80,13 @@ export const handler = async (event) => {
 		const cacheKey = getCacheKey(text, targetLangCode);
 
 		// ---------------------------
-		// 2. CHECK CACHE (fixed)
+		// 2. CHECK CACHE
 		// ---------------------------
 		try {
 			const cacheRes = await docClient.send(
 				new GetCommand({
 					TableName: CACHE_TABLE_NAME,
-					Key: { chache_key: cacheKey }, // FIXED: matches your actual DynamoDB key
+					Key: { chache_key: cacheKey },
 				})
 			);
 
@@ -109,7 +112,7 @@ export const handler = async (event) => {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					model: getTranslationModel(), // KEEP tinyllama
+					model: getTranslationModel(),
 					prompt: prompt,
 					stream: false,
 					options: { temperature: 0.1 },
@@ -128,14 +131,14 @@ export const handler = async (event) => {
 		}
 
 		// ---------------------------
-		// 4. SAVE TO CACHE (fixed)
+		// 4. SAVE TO CACHE
 		// ---------------------------
 		try {
 			await docClient.send(
 				new PutCommand({
 					TableName: CACHE_TABLE_NAME,
 					Item: {
-						chache_key: cacheKey, // FIXED key
+						chache_key: cacheKey,
 						source_text: text,
 						target_language: targetLangCode,
 						translation: translation,
@@ -148,23 +151,29 @@ export const handler = async (event) => {
 		}
 
 		// ---------------------------
-		// 5. SAVE TO USER HISTORY (fully fixed)
+		// 5. SEND TO SQS (Async History)
 		// ---------------------------
+        // [CHANGED] Replaced DynamoDB write with SQS Send
 		try {
-			await docClient.send(
-				new PutCommand({
-					TableName: HISTORY_TABLE,
-					Item: {
-						user_id: username, // keep username as user ID
-						timestamp: new Date().toISOString(), // FIXED sort key type
-						source_text: text,
-						target_language: targetLangCode,
-						translation: translation,
-					},
-				})
-			);
+            if (!SQS_QUEUE_URL) {
+                console.warn("SQS_QUEUE_URL is not set, history will be skipped.");
+            } else {
+                await sqsClient.send(
+                    new SendMessageCommand({
+                        QueueUrl: SQS_QUEUE_URL,
+                        MessageBody: JSON.stringify({
+                            user_id: username, // From JWT
+                            timestamp: new Date().toISOString(),
+                            source_text: text,
+                            target_language: targetLangCode,
+                            translation: translation,
+                        }),
+                    })
+                );
+            }
 		} catch (err) {
-			console.error("History write error:", err);
+			console.error("SQS Send Error:", err);
+            // We catch this so the user still gets their translation even if logging fails
 		}
 
 		// ---------------------------
