@@ -57,7 +57,7 @@
 				<div class="mt-4 flex justify-center">
 					<button
 						id="translate-btn"
-						class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-md"
+						class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-md transition-colors disabled:bg-blue-800 disabled:cursor-not-allowed"
 					>
 						<span id="translate-btn-text">Translate</span>
 					</button>
@@ -81,15 +81,15 @@
 
 		<script>
 			document.addEventListener("DOMContentLoaded", () => {
-				// --- URL CONSTANTS ---
+				// ------------------------------
+				// CONFIGURATION
+				// ------------------------------
 				const HISTORY_URL =
 					"https://8ac60j2lnf.execute-api.eu-north-1.amazonaws.com/prod/TranslationHistory";
 				const TRANSLATE_URL =
 					"https://8ac60j2lnf.execute-api.eu-north-1.amazonaws.com/prod/OllamaTranslationHandler";
 				
-				// [NIEUW] Jouw SQS URL
-				const SQS_URL = 
-					"https://8ac60j2lnf.execute-api.eu-north-1.amazonaws.com/prod/SQS-Order";
+				// ❌ REMOVED: SQS_URL is no longer needed here.
 
 				// ------------------------------
 				// Load user
@@ -104,10 +104,15 @@
 					"user-name"
 				).textContent = `Welcome, ${currentUser}`;
 
-				// Use handleLogout from app.js
 				document.getElementById("logout-btn").onclick = () => {
-					const redirect = handleLogout();
-					window.location.href = redirect;
+					// Ensure handleLogout exists in app.js, otherwise just clear session
+					if (typeof handleLogout === "function") {
+						const redirect = handleLogout();
+						window.location.href = redirect;
+					} else {
+						sessionStorage.clear();
+						window.location.href = "login.html";
+					}
 				};
 
 				// ------------------------------
@@ -115,9 +120,9 @@
 				// ------------------------------
 				async function fetchHistory() {
 					const token = sessionStorage.getItem("authToken");
+                    if(!token) return;
 
 					try {
-						// Logic from Merge: Uses POST, Auth Header, and User ID in Body
 						const res = await fetch(HISTORY_URL, {
 							method: "POST",
 							headers: {
@@ -130,12 +135,14 @@
 						});
 
 						const data = await res.json();
-
 						const container = document.getElementById("history-container");
-						const placeholder = document.getElementById("history-placeholder");
-
-						// Use Secure Render function from app.js
-						renderHistory(data.history, container);
+						
+						// Use Secure Render function from app.js if available
+						if (typeof renderHistory === "function") {
+							renderHistory(data.history, container);
+						} else {
+                            console.warn("renderHistory function missing in app.js");
+                        }
 					} catch (e) {
 						console.error("Failed to load history", e);
 					}
@@ -144,11 +151,17 @@
 				fetchHistory();
 
 				// ------------------------------
-				// Translation Request
+				// Translation Request (SECURE)
 				// ------------------------------
 				document.getElementById("translate-btn").onclick = async () => {
-					const text = document.getElementById("source-text").value.trim();
-					const lang = document.getElementById("target-lang").value;
+					const textInput = document.getElementById("source-text");
+					const langInput = document.getElementById("target-lang");
+                    const outputInput = document.getElementById("target-text");
+                    const btn = document.getElementById("translate-btn");
+                    const btnText = document.getElementById("translate-btn-text");
+
+					const text = textInput.value.trim();
+					const lang = langInput.value;
 
 					if (!text) return alert("Please enter text to translate.");
 
@@ -159,29 +172,14 @@
 						return;
 					}
 
-					try {
-						// --- [NIEUW] STUUR BERICHT NAAR AWS SQS ---
-						// We sturen dit "fire-and-forget" (wachten niet op antwoord om UI snel te houden)
-						fetch(SQS_URL, {
-							method: "POST",
-							headers: {
-								"Content-Type": "application/json"
-							},
-							body: JSON.stringify({
-								user_id: currentUser,
-								original_text: text,
-								target_language: lang,
-								timestamp: new Date().toISOString()
-							})
-						})
-						.then(sqsRes => {
-							if(sqsRes.ok) console.log("Succesvol verstuurd naar SQS Queue!");
-							else console.warn("SQS sturen mislukt, status:", sqsRes.status);
-						})
-						.catch(err => console.error("SQS Netwerk Fout:", err));
-						// ------------------------------------------
+                    // 1. UI Loading State
+                    btn.disabled = true;
+                    btnText.textContent = "Translating...";
+                    outputInput.value = "Processing...";
 
-						// --- BESTAANDE VERTAAL LOGICA ---
+					try {
+						// 2. Single Secure Request
+                        // The backend will handle the SQS logging now!
 						const res = await fetch(TRANSLATE_URL, {
 							method: "POST",
 							headers: {
@@ -191,23 +189,30 @@
 							body: JSON.stringify({
 								text,
 								target_lang: lang,
+                                // Note: user_id is extracted from token on backend
 							}),
 						});
 
 						const data = await res.json();
 
 						if (!res.ok) {
-							alert(`Translation failed: ${data.error || "Unknown error"}`);
-							return;
+                            throw new Error(data.error || "Translation failed");
 						}
 
-						document.getElementById("target-text").value = data.translation;
+                        // 3. Success
+						outputInput.value = data.translation;
 
-						// Update history
-						fetchHistory();
+						// 4. Update history (Small delay to allow SQS -> DB to process)
+                        setTimeout(() => fetchHistory(), 1500);
+
 					} catch (err) {
 						alert("An error occurred: " + err.message);
-					}
+                        outputInput.value = ""; // Clear on error
+					} finally {
+                        // 5. Reset Button
+                        btn.disabled = false;
+                        btnText.textContent = "Translate";
+                    }
 				};
 			});
 		</script>
