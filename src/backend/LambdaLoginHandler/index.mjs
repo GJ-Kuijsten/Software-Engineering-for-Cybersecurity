@@ -31,14 +31,14 @@ export const handler = async (event) => {
 		);
 
 		if (!result.Item) {
-			return response(401, { message: "Invalid username" });
+			return response(401, { message: "Invalid username or password" });
 		}
 
 		const hashed = result.Item.password.S;
 		const valid = await bcrypt.compare(password, hashed);
 
 		if (!valid) {
-			return response(401, { message: "Invalid password" });
+			return response(401, { message: "Invalid username or password" });
 		}
 
 		const token = jwt.sign({ username: username }, JWT_SECRET, {
