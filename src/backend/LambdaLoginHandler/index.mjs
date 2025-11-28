@@ -42,7 +42,7 @@ export const handler = async (event) => {
 		}
 
 		const token = jwt.sign({ username: username }, JWT_SECRET, {
-			expiresIn: "24h",
+			expiresIn: "10h",
 		});
 
 		return response(200, {
