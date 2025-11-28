@@ -4,10 +4,10 @@ import jwt from "jsonwebtoken";
 
 const db = new DynamoDBClient({});
 
+const JWT_SECRET = process.env.JWT_SECRET;
+
 export const handler = async (event) => {
 	try {
-		const JWT_SECRET = process.env.JWT_SECRET;
-
 		// Safe JSON parsing
 		let body = {};
 		try {
@@ -31,18 +31,18 @@ export const handler = async (event) => {
 		);
 
 		if (!result.Item) {
-			return response(401, { message: "Invalid username or password" });
+			return response(401, { message: "Invalid username" });
 		}
 
 		const hashed = result.Item.password.S;
 		const valid = await bcrypt.compare(password, hashed);
 
 		if (!valid) {
-			return response(401, { message: "Invalid username or password" }); // Won't reveal which part failed
+			return response(401, { message: "Invalid password" });
 		}
 
 		const token = jwt.sign({ username: username }, JWT_SECRET, {
-			expiresIn: "10h",
+			expiresIn: "24h",
 		});
 
 		return response(200, {
